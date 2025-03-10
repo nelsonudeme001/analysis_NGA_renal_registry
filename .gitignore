@@ -1,0 +1,16 @@
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.shp
+*.cpg
+*.dbf
+*.prj
+*.sbn
+*.sbx
+*.xml
+*.shx
+*.csv
+*.Rproj
+/nationalRR_cache
+/nationalRR_files
