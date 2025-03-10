@@ -303,4 +303,4 @@ HIV_survival_data <- rr_data_new %>%
 
 # Key Findings and Discussion
 
-Kindly check the `.ppt` PowerPoint slides and report for details
+Kindly check the `.pptx` PowerPoint slides and report for details [here](https://github.com/nelsonudeme001/analysis_NGA_renal_registry/)
