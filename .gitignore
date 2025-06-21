@@ -14,3 +14,7 @@
 *.Rproj
 /nationalRR_cache
 /nationalRR_files
+*.pptx
+*.rdb
+*.rdx
+*.tex

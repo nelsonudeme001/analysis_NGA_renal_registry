@@ -19,29 +19,25 @@ execute:
 Loading necessary packages and loading the data
 
 ```{r}
+#| output: false
+#| echo: false
+#| eval: false
 # Loading the necessary packages
-library(tidyverse)
-library(gtsummary)
-library(gt)
-library(ggplot2)
-library(survival)
-library(survminer)
-library(sf)
-library(ggspatial)
-library(prettymapr)
-library(labelled)
+packages <- c('tidyverse', 'gtsummary', 'gt', 'survival', 'survminer', 'sf', 'ggspatial',
+              'prettymapr', 'labelled', 'webshot2', 'patchwork')
+lapply(packages, library, character.only = T)
+```
 
-# Loading the data
+```{r}
+# Loading the renal registry data
 rr_data <- read_csv('rr_data.csv', trim_ws = T)
 ```
 
--   Selecting the necessary columns for my analysis and enforcing data types
-
--   Adding necessary columns
-
--   Forcing data types to ease analysis
-
 ```{r}
+# Selecting the necessary columns for analysis and enforcing data types
+# Creating necessary/calculated columns
+# Ensuring data types for ease of analysis
+
 rr_data_new <- rr_data %>% 
   select(c(Sex, Age, Zone, State, `Centre Category`, `First Modality`, `Vascular Access`, DM, HBV, HIV, HCV, Outcome, `Date of Diagnosis`, `Date of Death or Transplant`))
 
@@ -56,7 +52,8 @@ rr_data_new <- rr_data_new %>%
                                  Age > 45 & Age <=65 ~ '46 to 65',
                                  Age > 65 ~ 'Greater than 65')
          ) %>% 
-  mutate_at(c('Date of Diagnosis','Date of Death or Transplant'), mdy) %>% 
+  mutate_at(c('Date of Diagnosis','Date of Death or Transplant'),
+            ~as.Date(parse_date_time(., orders = c('mdy','dmy')))) %>% 
   mutate_at(c('Sex', 'Age Group', 'Zone', 'Centre Category', 'First Modality', 'Vascular Access', 'DM', 'HBV', 'HCV', 'HIV', 'Outcome'), as.factor)
 
 head(rr_data_new)
@@ -78,23 +75,25 @@ rr_data_new <- rr_data_new %>%
 Below is the summary table of the patient's demographics
 
 ```{r}
-#tbl_summary(rr_data_new,
-# include = c(Sex, Age, `Age Group`, Zone, `Centre Category`),
-#  statistic = list(
-#    all_continuous() ~ '{median} ({p25}, {p75})',
-#    all_categorical() ~ '{n} ({p}%)'
-#  ),
-#  digits = list(
-#    all_categorical() ~ c(0, 1),
-#    all_continuous() ~ c(1,1)
-#  )
-#  ) %>% 
-#  modify_header(label ~ '**Variables**') %>% 
-#  modify_caption('**Table 1 Sociodemographic Characteristics of Patients**') %>% 
-#  bold_labels() %>% 
-#  as_gt() %>% 
-#  cols_width(everything() ~ px(250))
-#  )
+my_table_summary <- tbl_summary(rr_data_new,
+ include = c(Sex, Age, `Age Group`, Zone, `Centre Category`),
+  statistic = list(
+    all_continuous() ~ '{median} ({p25}, {p75})',
+    all_categorical() ~ '{n} ({p}%)'),
+  digits = list(
+    all_categorical() ~ c(0, 1),
+    all_continuous() ~ c(1,1))
+  ) %>% 
+  modify_header(label ~ '**Variables**') %>% 
+  modify_caption('**Table 1 Sociodemographic Characteristics of Patients**') %>% 
+  bold_labels() %>% 
+  as_gt() %>% 
+  cols_width(everything() ~ px(250))
+
+my_table_summary
+
+#gtsave(my_table_summary, filename = "table_summary.tex")
+
 ```
 
 ## Geographical Distribution of Patients (using the UN human data Nigerian shape file)
@@ -135,11 +134,9 @@ pts_geog_distr
 map_data <- left_join(nigeria, pts_geog_distr, by = c('ADM1_EN' = 'State'))
 ```
 
-Below is the map of `Nigeria` showing the state-level geographical distribution of patients who underwent RRT in 2022 - 2023
-
 ```{r}
 
-#compute cenntroids for states label
+#compute centroids for states label
 state_centroids <- map_data %>%
   mutate(centroid = st_centroid(geometry)) %>%
   mutate(long = st_coordinates(centroid)[,1],
@@ -155,11 +152,12 @@ map_data %>%
   scale_fill_gradient(
     low = "#d8f3dc", high = "#00A676", na.value = "grey90")+
   labs(
-    title = "Geographical distribution of patients by State",
-    caption = "Nigerian shapefile: gotten from humandata.org"
+    title = "Geographical distribution of patients by State"
   ) +
   theme_bw()
 ```
+
+Above is the map of `Nigeria` showing the state-level geographical distribution of patients who underwent RRT in 2022 - 2023
 
 ## Patient's Distribution by Facility Type and Zone
 
@@ -285,22 +283,193 @@ rr_data_new %>%
 ## Survival Analysis of Various Factors influencing Time to death
 
 ```{r}
-# Extract df for sample survival analysis for variable HIV
+# Extract df survival analysis for variables Zone, Sex, Age Group, HIV, HBV, HCV, DM and Vascular Access
 
-HIV_survival_data <- rr_data_new %>%
+survival_data <- rr_data_new %>%
   filter(`Date of Diagnosis` > ymd('2022-01-01') &
            `Date of Diagnosis` %--% `Date of Death or Transplant`/days() > 0 ) %>%
-  filter(HIV %in% c('Pos', 'Neg')) %>% 
+  #filter(HIV %in% c('Pos', 'Neg')) %>% 
   mutate(`HIV status` = case_when(HIV == 'Neg'~ 0,
                                     HIV == 'Pos'~ 1),
            days = `Date of Diagnosis` %--% `Date of Death or Transplant`/days(),
            `death status` = case_when(Outcome == 'Dead' ~ 1,
                                       Outcome %in% c('Alive','Transplant') ~ 0)) %>% 
-  select(days, `HIV status`, `death status`)
+  mutate(agegroup = case_when(Age >= 40 ~ 'Age 40+',
+                              Age < 40 ~ 'Age <40')) %>% 
+  select(days,`death status`,`HIV status`, Zone, Sex, agegroup, HBV, HCV, DM, `Vascular Access`)
 ```
 
-## Hazard Ratios
+```{r}
+# Survival plot by Zone
+Zone_fit <- survfit(Surv(survival_data$days, survival_data$`death status`)~survival_data$Zone, data = survival_data)
 
-# Key Findings and Discussion
+p1 <- ggsurvplot(
+  fit = Zone_fit,
+  data = survival_data,
+  legend.title = 'Zones',
+  legend.text = element_text(size = 2, colour = "black"),
+  pval = T,
+  pval.size = 4,
+  pval.coord = c(0,0),
+  censor = F,
+  legend = c(.5, 0.19),
+  palette = 'lancet',
+  ggtheme = theme_bw() + 
+    theme(legend.direction = 'vertical',
+          legend.text = element_text(size = 6),
+          legend.title = element_text(size = 7),
+          legend.background = element_rect(fill = "white", colour = "black", size = 0.5))
+)
+```
 
-Kindly check the `.pptx` PowerPoint slides and report for details [here](https://github.com/nelsonudeme001/analysis_NGA_renal_registry/)
+```{r}
+# Survival plot for Sex
+Sex_fit <- survfit(Surv(time = survival_data$days, event = survival_data$`death status`)~survival_data$Sex, data = survival_data)
+
+p2 <- ggsurvplot(
+  fit = Sex_fit,
+  data = survival_data,
+  legend.title = "Sex",
+  pval = T,
+  pval.size = 4,
+  pval.coord = c(0,0),
+  censor = F,
+  legend = c(.8, 0.2),
+  palette = 'lancet',
+  ggtheme = theme_bw() + 
+    theme(legend.text = element_text(size = 6),
+          legend.title = element_text(size = 7),
+          legend.background = element_rect(fill = "white", colour = "black", size = 0.5))
+)
+```
+
+```{r}
+# Survival plot for Age Group (<40 Vs >= 40)
+Age_fit <- survfit(Surv(time = survival_data$days, event = survival_data$`death status`)~survival_data$agegroup, data = survival_data)
+
+p3 <- ggsurvplot(
+  fit = Age_fit,
+  data = survival_data,
+  legend.title = "Age Group",
+  pval = T,
+  pval.size = 4,
+  pval.coord = c(0,0),
+  censor = F,
+  legend = c(.5, 0.2),
+  palette = 'lancet',
+  ggtheme = theme_bw() + 
+    theme(legend.text = element_text(size = 6),
+          legend.title = element_text(size = 7),
+          legend.background = element_rect(fill = "white", colour = "black", size = 0.5)))
+```
+
+```{r}
+# Survival plot by HIV status
+HIV_fit <- survfit(Surv(time = survival_data$days, event = survival_data$`death status`)~survival_data$`HIV status`, data = survival_data)
+
+p4 <- ggsurvplot(
+  fit = HIV_fit,
+  data = survival_data,
+  legend.title = "HIV Status",
+  pval = T,
+  pval.size = 4,
+  pval.coord = c(0,0),
+  censor = F,
+  legend = c(.8, 0.2),
+  legend.labs = c("Negative", "Positive"),
+  palette = 'lancet',
+  ggtheme = theme_bw() + 
+    theme(legend.text = element_text(size = 6),
+          legend.title = element_text(size = 7),
+          legend.background = element_rect(fill = "white", colour = "black", size = 0.5)))
+```
+
+```{r}
+# Survival plot by HBV status
+HBV_fit <- survfit(Surv(time = survival_data$days, event = survival_data$`death status`)~survival_data$HBV, data = survival_data)
+
+p5 <- ggsurvplot(
+  fit = HBV_fit,
+  data = survival_data,
+  legend.title = "HBV Status",
+  pval = T,
+  pval.size = 4,
+  pval.coord = c(0,0),
+  censor = F,
+  legend = c(.8, 0.2),
+  palette = 'lancet',
+  ggtheme = theme_bw() + 
+    theme(legend.text = element_text(size = 6),
+          legend.title = element_text(size = 7),
+          legend.background = element_rect(fill = "white", colour = "black", size = 0.5)))
+```
+
+```{r}
+# Survival plot by HBV status
+HCV_fit <- survfit(Surv(time = survival_data$days, event = survival_data$`death status`)~survival_data$HCV, data = survival_data)
+
+p6 <- ggsurvplot(
+  fit = HCV_fit,
+  data = survival_data,
+  legend.title = "HCV Status",
+  pval = T,
+  pval.size = 4,
+  pval.coord = c(0,0),
+  censor = F,
+  legend = c(.8, 0.2),
+  palette = 'lancet',
+  ggtheme = theme_bw() + 
+    theme(legend.text = element_text(size = 6),
+          legend.title = element_text(size = 7),
+          legend.background = element_rect(fill = "white", colour = "black", size = 0.5)))
+```
+
+```{r}
+# Survival plot by HBV status
+DM_fit <- survfit(Surv(time = survival_data$days, event = survival_data$`death status`)~survival_data$DM, data = survival_data)
+
+p7 <- ggsurvplot(
+  fit = DM_fit,
+  data = survival_data,
+  legend.title = "DM",
+  pval = T,
+  pval.size = 4,
+  pval.coord = c(0,0),
+  censor = F,
+  legend = c(.8, 0.2),
+  palette = 'lancet',
+  ggtheme = theme_bw() + 
+    theme(legend.text = element_text(size = 6),
+          legend.title = element_text(size = 7),
+          legend.background = element_rect(fill = "white", colour = "black", size = 0.5)))
+```
+
+```{r}
+# Survival plot by HBV status
+VAC_fit <- survfit(Surv(time = survival_data$days, event = survival_data$`death status`)~survival_data$`Vascular Access`, data = survival_data)
+
+p8 <- ggsurvplot(
+  fit = VAC_fit,
+  data = survival_data,
+  legend.title = "Vascular Access",
+  pval = T,
+  pval.size = 4,
+  pval.coord = c(0,0),
+  censor = F,
+  legend = c(.8, 0.2),
+  palette = 'lancet',
+  ggtheme = theme_bw() + 
+    theme(legend.text = element_text(size = 6),
+          legend.title = element_text(size = 7),
+          legend.background = element_rect(fill = "white", colour = "black", size = 0.5)))
+```
+
+```{r}
+wrap_plots(p1$plot,p2$plot,p3$plot,p4$plot,
+           nrow = 2, ncol = 2) + plot_annotation(title = 'Survival plots across sub-groups of Zone, Sex, Age group, and HIV status')
+```
+
+```{r}
+wrap_plots(p5$plot,p6$plot,p7$plot,p8$plot,
+           nrow = 2, ncol = 2) + plot_annotation(title = 'Survival plots across sub-groups of HBV, HCV status, DM and Vascular Access')
+```
