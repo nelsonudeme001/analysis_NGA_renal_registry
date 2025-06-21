@@ -20,8 +20,8 @@ Loading necessary packages and loading the data
 
 ```{r}
 #| output: false
-#| echo: false
-#| eval: false
+#| echo: true
+#| eval: true
 # Loading the necessary packages
 packages <- c('tidyverse', 'gtsummary', 'gt', 'survival', 'survminer', 'sf', 'ggspatial',
               'prettymapr', 'labelled', 'webshot2', 'patchwork')
