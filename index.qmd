@@ -212,7 +212,7 @@ Below shows the visualization of the temporal trends in RRT in Nigeria (2022 - 2
 ```{r}
 # Aggregrate dataframe to show monthly trends
 
-rr_data_new %>% 
+temporal_trend <- rr_data_new %>% 
   mutate(monthly_rrt = floor_date(`Date of Diagnosis`, unit = 'months')) %>%
   group_by(monthly_rrt) %>% 
   summarise(monthly_rrt_pts = n()) %>% 
@@ -234,6 +234,8 @@ rr_data_new %>%
        x = 'Monthly Trend',
        y= 'No of Patients')+
   theme_bw()
+
+temporal_trend
 ```
 
 ## Vascular Access (Overall and by Zone)
