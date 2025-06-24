@@ -301,6 +301,11 @@ survival_data <- rr_data_new %>%
   select(days,`death status`,`HIV status`, Zone, Sex, agegroup, HBV, HCV, DM, `Vascular Access`)
 ```
 
+Code snippets for the survival analysis across variables are shown below with subsequent plots
+
+::: panel-tabset
+## Zone
+
 ```{r}
 # Survival plot by Zone
 Zone_fit <- survfit(Surv(survival_data$days, survival_data$`death status`)~survival_data$Zone, data = survival_data)
@@ -324,6 +329,8 @@ p1 <- ggsurvplot(
 )
 ```
 
+## Sex
+
 ```{r}
 # Survival plot for Sex
 Sex_fit <- survfit(Surv(time = survival_data$days, event = survival_data$`death status`)~survival_data$Sex, data = survival_data)
@@ -345,6 +352,8 @@ p2 <- ggsurvplot(
 )
 ```
 
+## Age
+
 ```{r}
 # Survival plot for Age Group (<40 Vs >= 40)
 Age_fit <- survfit(Surv(time = survival_data$days, event = survival_data$`death status`)~survival_data$agegroup, data = survival_data)
@@ -364,6 +373,8 @@ p3 <- ggsurvplot(
           legend.title = element_text(size = 7),
           legend.background = element_rect(fill = "white", colour = "black", size = 0.5)))
 ```
+
+## HIV
 
 ```{r}
 # Survival plot by HIV status
@@ -386,6 +397,8 @@ p4 <- ggsurvplot(
           legend.background = element_rect(fill = "white", colour = "black", size = 0.5)))
 ```
 
+## HBV
+
 ```{r}
 # Survival plot by HBV status
 HBV_fit <- survfit(Surv(time = survival_data$days, event = survival_data$`death status`)~survival_data$HBV, data = survival_data)
@@ -406,8 +419,10 @@ p5 <- ggsurvplot(
           legend.background = element_rect(fill = "white", colour = "black", size = 0.5)))
 ```
 
+## HCV
+
 ```{r}
-# Survival plot by HBV status
+# Survival plot by HCV status
 HCV_fit <- survfit(Surv(time = survival_data$days, event = survival_data$`death status`)~survival_data$HCV, data = survival_data)
 
 p6 <- ggsurvplot(
@@ -426,8 +441,10 @@ p6 <- ggsurvplot(
           legend.background = element_rect(fill = "white", colour = "black", size = 0.5)))
 ```
 
+## DM
+
 ```{r}
-# Survival plot by HBV status
+# Survival plot by DM status
 DM_fit <- survfit(Surv(time = survival_data$days, event = survival_data$`death status`)~survival_data$DM, data = survival_data)
 
 p7 <- ggsurvplot(
@@ -446,8 +463,10 @@ p7 <- ggsurvplot(
           legend.background = element_rect(fill = "white", colour = "black", size = 0.5)))
 ```
 
+## VAC
+
 ```{r}
-# Survival plot by HBV status
+# Survival plot by Vascular Access
 VAC_fit <- survfit(Surv(time = survival_data$days, event = survival_data$`death status`)~survival_data$`Vascular Access`, data = survival_data)
 
 p8 <- ggsurvplot(
@@ -465,6 +484,7 @@ p8 <- ggsurvplot(
           legend.title = element_text(size = 7),
           legend.background = element_rect(fill = "white", colour = "black", size = 0.5)))
 ```
+:::
 
 ```{r}
 wrap_plots(p1$plot,p2$plot,p3$plot,p4$plot,
